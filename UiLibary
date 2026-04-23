@@ -122,7 +122,7 @@ function c4rl:CreateWindow(config)
     SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     SG.ResetOnSpawn   = false
     SG.DisplayOrder   = 150
-    SG.Parent         = game.CoreGui
+    SG.Parent = gethui() -- works in most executors (Synapse, KRNL, etc.)
 
     -- ── Notification layer ──────────────────────────────────────
     local NotifHolder = Instance.new("Frame")
