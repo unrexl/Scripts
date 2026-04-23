@@ -320,7 +320,7 @@ function c4rl:CreateWindow(config)
     MinBtn.Position         = UDim2.new(1, -12, 0.5, 0)
     MinBtn.Size             = UDim2.new(0, 28, 0, 28)
     MinBtn.Font             = Enum.Font.GothamBold
-    MinBtn.Text             = "−"
+    MinBtn.Text             = "-"
     MinBtn.TextColor3       = C.TextMuted
     MinBtn.TextSize         = 18
     MinBtn.AutoButtonColor  = false
@@ -380,7 +380,7 @@ function c4rl:CreateWindow(config)
     ContentArea.Size             = UDim2.new(1, -119, 1, 0)
     ContentArea.Parent           = Body
 
-    -- *** FIX: PagesFolder must be a Frame, NOT a Folder.
+    -- PagesFolder must be a Frame, NOT a Folder.
     -- A Folder is a non-GUI object; ScrollingFrames parented to it
     -- will never render even if Visible = true.
     local PagesHolder = Instance.new("Frame")
@@ -402,7 +402,7 @@ function c4rl:CreateWindow(config)
             MinBtn.Text = "+"
             Tween(MainFrame, {Size = UDim2.new(0, 600, 0, 50)}, 0.28, Enum.EasingStyle.Quint)
         else
-            MinBtn.Text = "−"
+            MinBtn.Text = "-"
             Tween(MainFrame, {Size = normalSize}, 0.28, Enum.EasingStyle.Quint)
         end
     end)
@@ -561,7 +561,7 @@ function c4rl:CreateWindow(config)
         Page.ScrollBarImageTransparency  = 0.5
         Page.Active                      = true
         Page.Visible                     = false   -- hidden until selected
-        Page.Parent                      = PagesHolder  -- *** MUST be a Frame, not Folder
+        Page.Parent                      = PagesHolder
         Corner(Page, 0)
 
         local PageLayout = Instance.new("UIListLayout")
@@ -581,7 +581,7 @@ function c4rl:CreateWindow(config)
         end
         PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(SyncCanvas)
 
-        -- *** FIX: SelectThis now ONLY iterates ScrollingFrames in PagesHolder
+        -- SelectThis: ONLY iterates ScrollingFrames in PagesHolder
         -- and ONLY TextButtons in TabSide, so UIListLayout / UIPadding /
         -- the divider Frame etc. are never accidentally tweened or toggled.
         local function SelectThis()
@@ -619,7 +619,7 @@ function c4rl:CreateWindow(config)
             Tween(TabBtn, {BackgroundColor3 = C.Bg}, 0.14)
         end)
 
-        -- *** FIX: auto-select the very first tab that is created.
+        -- Auto-select the very first tab that is created.
         -- task.defer so all tabs are parented before we select.
         if not firstTabChosen then
             firstTabChosen = true
@@ -1047,7 +1047,7 @@ function c4rl:CreateWindow(config)
             arrow.Position     = UDim2.new(1, -13, 0.5, 0)
             arrow.Size         = UDim2.new(0, 18, 0, 18)
             arrow.Font         = Enum.Font.GothamBold
-            arrow.Text         = "▾"
+            arrow.Text         = "v"
             arrow.TextColor3   = C.Accent
             arrow.TextSize     = 14
             arrow.Parent       = hdr
@@ -1188,7 +1188,7 @@ function c4rl:CreateWindow(config)
             arrow.Position     = UDim2.new(1, -13, 0.5, 0)
             arrow.Size         = UDim2.new(0, 18, 0, 18)
             arrow.Font         = Enum.Font.GothamBold
-            arrow.Text         = "▾"
+            arrow.Text         = "v"
             arrow.TextColor3   = C.Accent
             arrow.TextSize     = 14
             arrow.Parent       = hdr
@@ -1227,7 +1227,7 @@ function c4rl:CreateWindow(config)
                 tick.BackgroundTransparency = 1
                 tick.Size             = UDim2.new(1, 0, 1, 0)
                 tick.Font             = Enum.Font.GothamBold
-                tick.Text             = "✓"
+                tick.Text             = "OK"
                 tick.TextColor3       = C.White
                 tick.TextTransparency = selected[opt] and 0 or 1
                 tick.TextSize         = 10
@@ -1641,7 +1641,7 @@ function c4rl:CreateWindow(config)
             minusBtn.Position         = UDim2.new(1, -10, 0.5, 0)
             minusBtn.Size             = UDim2.new(0, 26, 0, 26)
             minusBtn.Font             = Enum.Font.GothamBold
-            minusBtn.Text             = "−"
+            minusBtn.Text             = "-"
             minusBtn.TextColor3       = C.TextMuted
             minusBtn.TextSize         = 16
             minusBtn.AutoButtonColor  = false
