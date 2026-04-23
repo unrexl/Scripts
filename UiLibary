@@ -347,7 +347,8 @@ function c4rl:CreateWindow(config)
     TabSide.BackgroundColor3 = C.Surface
     TabSide.BorderSizePixel  = 0
     TabSide.Size             = UDim2.new(0, 118, 1, 0)
-    TabSide.ClipsDescendants = true
+    TabSide.ClipsDescendants = false
+    TabSide.ZIndex           = 2
     TabSide.Parent           = Body
 
     -- Right border on sidebar
@@ -378,6 +379,8 @@ function c4rl:CreateWindow(config)
     ContentArea.BorderSizePixel  = 0
     ContentArea.Position         = UDim2.new(0, 119, 0, 0)
     ContentArea.Size             = UDim2.new(1, -119, 1, 0)
+    ContentArea.ZIndex           = 1
+    ContentArea.ClipsDescendants = true
     ContentArea.Parent           = Body
 
     -- PagesFolder must be a Frame, NOT a Folder.
@@ -388,6 +391,7 @@ function c4rl:CreateWindow(config)
     PagesHolder.BackgroundTransparency = 1
     PagesHolder.BorderSizePixel        = 0
     PagesHolder.Size                   = UDim2.new(1, 0, 1, 0)
+    PagesHolder.ClipsDescendants       = false
     PagesHolder.Parent                 = ContentArea
 
     MakeDraggable(Header, MainFrame)
@@ -527,12 +531,12 @@ function c4rl:CreateWindow(config)
         -- Tab sidebar button
         local TabBtn = Instance.new("TextButton")
         TabBtn.Name             = "TabBtn_" .. tabName
-        TabBtn.BackgroundColor3 = C.Bg
+        TabBtn.BackgroundColor3 = C.Surface
         TabBtn.BorderSizePixel  = 0
-        TabBtn.Size             = UDim2.new(1, 0, 0, 32)
+        TabBtn.Size             = UDim2.new(1, -14, 0, 32)
         TabBtn.Font             = Enum.Font.GothamSemibold
         TabBtn.Text             = tabName
-        TabBtn.TextColor3       = C.TextDim
+        TabBtn.TextColor3       = C.TextMuted
         TabBtn.TextSize         = 12
         TabBtn.AutoButtonColor  = false
         TabBtn.Parent           = TabSide
@@ -594,7 +598,7 @@ function c4rl:CreateWindow(config)
             -- Deactivate all tab buttons
             for _, b in ipairs(TabSide:GetChildren()) do
                 if b:IsA("TextButton") then
-                    Tween(b, {BackgroundColor3 = C.Bg, TextColor3 = C.TextDim}, 0.16)
+                    Tween(b, {BackgroundColor3 = C.Surface, TextColor3 = C.TextMuted}, 0.16)
                     -- Hide this button's named Indicator
                     local ind = b:FindFirstChild("Indicator")
                     if ind then
@@ -612,11 +616,11 @@ function c4rl:CreateWindow(config)
         TabBtn.MouseButton1Click:Connect(SelectThis)
         TabBtn.MouseEnter:Connect(function()
             if Page.Visible then return end
-            Tween(TabBtn, {BackgroundColor3 = C.SurfaceUp}, 0.14)
+            Tween(TabBtn, {BackgroundColor3 = C.SurfaceTop}, 0.14)
         end)
         TabBtn.MouseLeave:Connect(function()
             if Page.Visible then return end
-            Tween(TabBtn, {BackgroundColor3 = C.Bg}, 0.14)
+            Tween(TabBtn, {BackgroundColor3 = C.Surface}, 0.14)
         end)
 
         -- Auto-select the very first tab that is created.
