@@ -19,6 +19,31 @@ local LocalPlayer = Players.LocalPlayer
 local Mouse       = LocalPlayer:GetMouse()
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+--  Safe GUI Parent
+--  Works across Synapse X, KRNL, Fluxus,
+--  Electron, Script-Ware, and plain Studio.
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local function GetGuiParent()
+    -- gethui() is the safest option for most exploit executors
+    if gethui then
+        local ok, result = pcall(gethui)
+        if ok and result then return result end
+    end
+    -- syn.protect_gui for Synapse X
+    if syn and syn.protect_gui then
+        local sg = Instance.new("ScreenGui")
+        pcall(syn.protect_gui, sg)
+        sg.Parent = game:GetService("CoreGui")
+        return sg
+    end
+    -- Direct CoreGui (works in some executors + Studio)
+    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok and cg then return cg end
+    -- Final fallback: PlayerGui (always available)
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --  Color Palette
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 local C = {
@@ -46,9 +71,10 @@ local function Tween(obj, props, t, style, dir)
     style = style or Enum.EasingStyle.Quint
     dir   = dir   or Enum.EasingDirection.Out
     t     = t     or 0.2
-    local tw = TweenService:Create(obj, TweenInfo.new(t, style, dir), props)
-    tw:Play()
-    return tw
+    local ok, tw = pcall(function()
+        return TweenService:Create(obj, TweenInfo.new(t, style, dir), props)
+    end)
+    if ok and tw then tw:Play() return tw end
 end
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -86,7 +112,7 @@ local function MakeDraggable(handle, frame)
 end
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
---  Corner Helper
+--  UI Helpers
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 local function Corner(parent, radius)
     local c = Instance.new("UICorner")
@@ -106,11 +132,6 @@ end
 -- ══════════════════════════════════════════════════════════════════
 --  c4rl:CreateWindow(config)
 -- ══════════════════════════════════════════════════════════════════
--- config = {
---   Title    = "My Script",   -- window title
---   Subtitle = "v1.0",        -- small subtitle under title
--- }
--- ══════════════════════════════════════════════════════════════════
 function c4rl:CreateWindow(config)
     config = config or {}
     local WinTitle    = config.Title    or "c4rl"
@@ -118,21 +139,33 @@ function c4rl:CreateWindow(config)
 
     -- ── Root ScreenGui ──────────────────────────────────────────
     local SG = Instance.new("ScreenGui")
-    SG.Name           = "c4rl_" .. WinTitle
-    SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    SG.ResetOnSpawn   = false
-    SG.DisplayOrder   = 150
-    SG.Parent = gethui() -- works in most executors (Synapse, KRNL, etc.)
+    SG.Name             = "c4rl_" .. WinTitle
+    SG.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
+    SG.ResetOnSpawn     = false
+    SG.DisplayOrder     = 150
+    SG.IgnoreGuiInset   = true
+
+    -- Use safe parenting — handles every executor
+    local guiParent = GetGuiParent()
+    -- If GetGuiParent returned a ScreenGui (syn path), just use it directly
+    -- Otherwise parent our ScreenGui into the container
+    if guiParent:IsA("ScreenGui") then
+        -- syn path already made a protected ScreenGui; we'll reparent into it
+        -- by just using CoreGui directly since syn already called protect_gui
+        SG.Parent = game:GetService("CoreGui")
+    else
+        SG.Parent = guiParent
+    end
 
     -- ── Notification layer ──────────────────────────────────────
     local NotifHolder = Instance.new("Frame")
-    NotifHolder.Name                 = "NotifHolder"
+    NotifHolder.Name                   = "NotifHolder"
     NotifHolder.BackgroundTransparency = 1
-    NotifHolder.Position             = UDim2.new(1, -310, 0, 20)
-    NotifHolder.Size                 = UDim2.new(0, 295, 1, -40)
-    NotifHolder.ClipsDescendants     = false
-    NotifHolder.ZIndex               = 200
-    NotifHolder.Parent               = SG
+    NotifHolder.Position               = UDim2.new(1, -310, 0, 20)
+    NotifHolder.Size                   = UDim2.new(0, 295, 1, -40)
+    NotifHolder.ClipsDescendants       = false
+    NotifHolder.ZIndex                 = 200
+    NotifHolder.Parent                 = SG
 
     local NotifLayout = Instance.new("UIListLayout")
     NotifLayout.SortOrder         = Enum.SortOrder.LayoutOrder
@@ -142,14 +175,13 @@ function c4rl:CreateWindow(config)
 
     -- ── Intro Overlay ───────────────────────────────────────────
     local Overlay = Instance.new("Frame")
-    Overlay.Size                 = UDim2.new(1, 0, 1, 0)
-    Overlay.BackgroundColor3     = Color3.fromRGB(0, 0, 0)
+    Overlay.Size                   = UDim2.new(1, 0, 1, 0)
+    Overlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
     Overlay.BackgroundTransparency = 0
-    Overlay.ZIndex               = 300
-    Overlay.BorderSizePixel      = 0
-    Overlay.Parent               = SG
+    Overlay.ZIndex                 = 300
+    Overlay.BorderSizePixel        = 0
+    Overlay.Parent                 = SG
 
-    -- Intro container (centred)
     local IntroContainer = Instance.new("Frame")
     IntroContainer.BackgroundTransparency = 1
     IntroContainer.AnchorPoint  = Vector2.new(0.5, 0.5)
@@ -158,33 +190,17 @@ function c4rl:CreateWindow(config)
     IntroContainer.ZIndex       = 301
     IntroContainer.Parent       = Overlay
 
-    -- Glowing dot above title
     local GlowDot = Instance.new("Frame")
-    GlowDot.BackgroundColor3 = C.Accent
-    GlowDot.BorderSizePixel  = 0
-    GlowDot.AnchorPoint      = Vector2.new(0.5, 1)
-    GlowDot.Position         = UDim2.new(0.5, 0, 0, 0)
-    GlowDot.Size             = UDim2.new(0, 6, 0, 6)
+    GlowDot.BackgroundColor3       = C.Accent
+    GlowDot.BorderSizePixel        = 0
+    GlowDot.AnchorPoint            = Vector2.new(0.5, 1)
+    GlowDot.Position               = UDim2.new(0.5, 0, 0, 0)
+    GlowDot.Size                   = UDim2.new(0, 6, 0, 6)
     GlowDot.BackgroundTransparency = 1
-    GlowDot.ZIndex           = 302
-    GlowDot.Parent           = IntroContainer
+    GlowDot.ZIndex                 = 302
+    GlowDot.Parent                 = IntroContainer
     Corner(GlowDot, 99)
 
-    -- Big title
-    local IntroTitle = Instance.new("TextLabel")
-    IntroTitle.BackgroundTransparency = 1
-    IntroTitle.AnchorPoint    = Vector2.new(0.5, 0)
-    IntroTitle.Position       = UDim2.new(0.5, 0, 0, 8)
-    IntroTitle.Size           = UDim2.new(1, 0, 0, 68)
-    IntroTitle.Font           = Enum.Font.GothamBlack
-    IntroTitle.Text           = "c4rl"
-    IntroTitle.TextColor3     = C.White
-    IntroTitle.TextSize       = 72
-    IntroTitle.TextTransparency = 1
-    IntroTitle.ZIndex         = 302
-    IntroTitle.Parent         = IntroContainer
-
-    -- Accent underline
     local IntroLine = Instance.new("Frame")
     IntroLine.BackgroundColor3 = C.Accent
     IntroLine.BorderSizePixel  = 0
@@ -195,7 +211,6 @@ function c4rl:CreateWindow(config)
     IntroLine.Parent           = IntroContainer
     Corner(IntroLine, 2)
 
-    -- Sub label
     local IntroSub = Instance.new("TextLabel")
     IntroSub.BackgroundTransparency = 1
     IntroSub.AnchorPoint    = Vector2.new(0.5, 0)
@@ -209,11 +224,9 @@ function c4rl:CreateWindow(config)
     IntroSub.ZIndex         = 302
     IntroSub.Parent         = IntroContainer
 
-    -- Letter-by-letter character labels for "c4rl"
-    -- We split the title into individual TextLabels for staggered reveal
-    local chars   = {"c", "4", "r", "l"}
-    local charW   = 50
-    local totalW  = #chars * charW
+    local chars      = {"c", "4", "r", "l"}
+    local charW      = 50
+    local totalW     = #chars * charW
     local charLabels = {}
     for i, ch in ipairs(chars) do
         local cl = Instance.new("TextLabel")
@@ -229,22 +242,21 @@ function c4rl:CreateWindow(config)
         cl.Parent       = IntroContainer
         charLabels[i]   = cl
     end
-    IntroTitle.Text = ""  -- hide the base label, use individual chars
 
     -- ── Main Window Frame ────────────────────────────────────────
     local MainFrame = Instance.new("Frame")
-    MainFrame.Name            = "c4rl_Main"
+    MainFrame.Name             = "c4rl_Main"
     MainFrame.BackgroundColor3 = C.AccentDark
-    MainFrame.BorderSizePixel = 0
-    MainFrame.AnchorPoint     = Vector2.new(0.5, 0.5)
-    MainFrame.Position        = UDim2.new(0.5, 0, 0.5, 0)
-    MainFrame.Size            = UDim2.new(0, 600, 0, 370)
+    MainFrame.BorderSizePixel  = 0
+    MainFrame.AnchorPoint      = Vector2.new(0.5, 0.5)
+    MainFrame.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    MainFrame.Size             = UDim2.new(0, 600, 0, 370)
     MainFrame.ClipsDescendants = true
-    MainFrame.Visible         = false
-    MainFrame.Parent          = SG
+    MainFrame.Visible          = false
+    MainFrame.Parent           = SG
     Corner(MainFrame, 8)
 
-    -- 4-px left accent strip is created by AccentDark showing behind
+    -- 4-px left accent strip shown by AccentDark peeking behind Inner
     local Inner = Instance.new("Frame")
     Inner.Name             = "Inner"
     Inner.BackgroundColor3 = C.Bg
@@ -262,7 +274,6 @@ function c4rl:CreateWindow(config)
     Header.Size             = UDim2.new(1, 0, 0, 50)
     Header.Parent           = Inner
 
-    -- bottom 1-px separator
     local HeaderSep = Instance.new("Frame")
     HeaderSep.BackgroundColor3 = C.Accent
     HeaderSep.BorderSizePixel  = 0
@@ -270,7 +281,6 @@ function c4rl:CreateWindow(config)
     HeaderSep.Size             = UDim2.new(1, 0, 0, 1)
     HeaderSep.Parent           = Header
 
-    -- "c4rl" wordmark pill in header
     local Wordmark = Instance.new("Frame")
     Wordmark.BackgroundColor3 = C.AccentDark
     Wordmark.BorderSizePixel  = 0
@@ -346,21 +356,23 @@ function c4rl:CreateWindow(config)
     TabSide.BackgroundColor3 = C.Surface
     TabSide.BorderSizePixel  = 0
     TabSide.Size             = UDim2.new(0, 118, 1, 0)
-    TabSide.Parent           = Body
     TabSide.ClipsDescendants = true
+    TabSide.Parent           = Body
 
+    -- Right border on sidebar
     local TabSideRight = Instance.new("Frame")
-    TabSideRight.BackgroundColor3 = C.SurfaceUp
-    TabSideRight.BorderSizePixel  = 0
-    TabSideRight.AnchorPoint      = Vector2.new(1, 0)
-    TabSideRight.Position         = UDim2.new(1, 0, 0, 0)
-    TabSideRight.Size             = UDim2.new(0, 1, 1, 0)
-    TabSideRight.Parent           = TabSide
+    TabSideRight.Name              = "Divider"
+    TabSideRight.BackgroundColor3  = C.SurfaceUp
+    TabSideRight.BorderSizePixel   = 0
+    TabSideRight.AnchorPoint       = Vector2.new(1, 0)
+    TabSideRight.Position          = UDim2.new(1, 0, 0, 0)
+    TabSideRight.Size              = UDim2.new(0, 1, 1, 0)
+    TabSideRight.Parent            = TabSide
 
     local TabListLayout = Instance.new("UIListLayout")
-    TabListLayout.SortOrder           = Enum.SortOrder.LayoutOrder
-    TabListLayout.Padding             = UDim.new(0, 3)
-    TabListLayout.Parent              = TabSide
+    TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    TabListLayout.Padding   = UDim.new(0, 3)
+    TabListLayout.Parent    = TabSide
 
     local TabListPad = Instance.new("UIPadding")
     TabListPad.PaddingTop   = UDim.new(0, 8)
@@ -377,17 +389,21 @@ function c4rl:CreateWindow(config)
     ContentArea.Size             = UDim2.new(1, -119, 1, 0)
     ContentArea.Parent           = Body
 
-    local PagesFolder = Instance.new("Frame")
-    PagesFolder.BackgroundTransparency = 1
-    PagesFolder.BorderSizePixel        = 0
-    PagesFolder.Size                   = UDim2.new(1, 0, 1, 0)
-    PagesFolder.Parent                 = ContentArea
+    -- *** FIX: PagesFolder must be a Frame, NOT a Folder.
+    -- A Folder is a non-GUI object; ScrollingFrames parented to it
+    -- will never render even if Visible = true.
+    local PagesHolder = Instance.new("Frame")
+    PagesHolder.Name                   = "PagesHolder"
+    PagesHolder.BackgroundTransparency = 1
+    PagesHolder.BorderSizePixel        = 0
+    PagesHolder.Size                   = UDim2.new(1, 0, 1, 0)
+    PagesHolder.Parent                 = ContentArea
 
     MakeDraggable(Header, MainFrame)
 
     -- ── Minimize Logic ───────────────────────────────────────────
-    local isMinimized  = false
-    local normalSize   = MainFrame.Size
+    local isMinimized = false
+    local normalSize  = MainFrame.Size
 
     MinBtn.MouseButton1Click:Connect(function()
         isMinimized = not isMinimized
@@ -402,48 +418,34 @@ function c4rl:CreateWindow(config)
 
     -- ── Intro Animation ──────────────────────────────────────────
     task.spawn(function()
-        -- Stagger each character in
         for i, cl in ipairs(charLabels) do
             task.delay((i - 1) * 0.07, function()
                 Tween(cl, {TextTransparency = 0}, 0.35, Enum.EasingStyle.Back)
-                -- also animate position: slide up slightly
                 cl.Position = UDim2.new(cl.Position.X.Scale, cl.Position.X.Offset,
                                         0, cl.Position.Y.Offset + 12)
                 Tween(cl, {Position = UDim2.new(
-                    cl.Position.X.Scale, cl.Position.X.Offset,
-                    0, 8
+                    cl.Position.X.Scale, cl.Position.X.Offset, 0, 8
                 )}, 0.35, Enum.EasingStyle.Back)
             end)
         end
         task.wait(0.45)
-
-        -- Glow dot
         GlowDot.BackgroundTransparency = 1
         Tween(GlowDot, {BackgroundTransparency = 0}, 0.3)
-
-        -- Expand line
         Tween(IntroLine, {Size = UDim2.new(0, 220, 0, 2)}, 0.45, Enum.EasingStyle.Quint)
-
         task.wait(0.28)
-        -- Sub fade in
         Tween(IntroSub, {TextTransparency = 0}, 0.35)
-
         task.wait(0.85)
-
-        -- Fade everything out
         for _, cl in ipairs(charLabels) do
             Tween(cl, {TextTransparency = 1}, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         end
         Tween(IntroSub,  {TextTransparency = 1}, 0.25, Enum.EasingStyle.Quint)
         Tween(IntroLine, {Size = UDim2.new(0, 0, 0, 2)}, 0.3, Enum.EasingStyle.Quint)
         Tween(GlowDot,   {BackgroundTransparency = 1}, 0.2)
-
         task.wait(0.32)
         Tween(Overlay, {BackgroundTransparency = 1}, 0.45, Enum.EasingStyle.Quint)
         task.wait(0.45)
         Overlay:Destroy()
-
-        -- Reveal main window with spring
+        -- Reveal main window with spring pop
         MainFrame.Visible = true
         MainFrame.Size    = UDim2.new(0, 0, 0, 0)
         Tween(MainFrame, {Size = normalSize}, 0.45, Enum.EasingStyle.Back)
@@ -452,41 +454,31 @@ function c4rl:CreateWindow(config)
     -- ════════════════════════════════════════════════
     --  Window API
     -- ════════════════════════════════════════════════
-    local WindowAPI = {}
-    local firstTabSelectFn = nil
+    local WindowAPI      = {}
+    local firstTabChosen = false
 
-    -- ── Notify ──────────────────────────────────────────────────
-    -- config = {
-    --   Title    = "Alert",
-    --   Message  = "Something happened.",
-    --   Duration = 4,                  -- seconds (default 3)
-    --   Type     = "Success",          -- Info | Success | Warning | Error
-    -- }
-    function WindowAPI:Notify(config)
-        config = config or {}
-        local title    = config.Title    or "Notification"
-        local message  = config.Message  or ""
-        local duration = config.Duration or 3
-        local nType    = config.Type     or "Info"
-
+    -- ── Notify ──────────────────────────────────────
+    function WindowAPI:Notify(cfg)
+        cfg = cfg or {}
+        local title    = cfg.Title    or "Notification"
+        local message  = cfg.Message  or ""
+        local duration = cfg.Duration or 3
+        local nType    = cfg.Type     or "Info"
         local typeColors = {
-            Info    = C.Info,
-            Success = C.Success,
-            Warning = C.Warning,
-            Error   = C.Error,
+            Info = C.Info, Success = C.Success,
+            Warning = C.Warning, Error = C.Error,
         }
         local color = typeColors[nType] or C.Accent
 
         local notif = Instance.new("Frame")
-        notif.BackgroundColor3 = C.SurfaceUp
-        notif.BorderSizePixel  = 0
-        notif.Size             = UDim2.new(1, 0, 0, 68)
-        notif.ClipsDescendants = true
+        notif.BackgroundColor3       = C.SurfaceUp
+        notif.BorderSizePixel        = 0
+        notif.Size                   = UDim2.new(1, 0, 0, 68)
+        notif.ClipsDescendants       = true
         notif.BackgroundTransparency = 0.1
-        notif.Parent           = NotifHolder
+        notif.Parent                 = NotifHolder
         Corner(notif, 7)
 
-        -- color strip
         local strip = Instance.new("Frame")
         strip.BackgroundColor3 = color
         strip.BorderSizePixel  = 0
@@ -517,7 +509,6 @@ function c4rl:CreateWindow(config)
         nMsg.TextWrapped = true
         nMsg.Parent    = notif
 
-        -- progress bar
         local prog = Instance.new("Frame")
         prog.BackgroundColor3 = color
         prog.BorderSizePixel  = 0
@@ -525,27 +516,26 @@ function c4rl:CreateWindow(config)
         prog.Size             = UDim2.new(1, 0, 0, 2)
         prog.Parent           = notif
 
-        -- animate
-        notif.Position = UDim2.new(0.08, 0, 0, 0)
+        notif.Position               = UDim2.new(0.08, 0, 0, 0)
         notif.BackgroundTransparency = 1
         Tween(notif, {Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 0.1}, 0.3, Enum.EasingStyle.Quint)
         Tween(prog,  {Size = UDim2.new(0, 0, 0, 2)}, duration, Enum.EasingStyle.Linear)
 
         task.delay(duration, function()
-            Tween(notif, {Position = UDim2.new(0.1, 0, 0, 0), BackgroundTransparency = 1}, 0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            Tween(notif, {Position = UDim2.new(0.1, 0, 0, 0), BackgroundTransparency = 1},
+                  0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
             task.wait(0.3)
             notif:Destroy()
         end)
     end
 
-    -- ── CreateTab ────────────────────────────────────────────────
-    -- tabName = "Tab Name"  (shown in sidebar)
+    -- ── CreateTab ────────────────────────────────────
     function WindowAPI:CreateTab(tabName)
         tabName = tabName or "Tab"
 
-        -- Tab button
+        -- Tab sidebar button
         local TabBtn = Instance.new("TextButton")
-        TabBtn.Name             = "Tab_" .. tabName
+        TabBtn.Name             = "TabBtn_" .. tabName
         TabBtn.BackgroundColor3 = C.Bg
         TabBtn.BorderSizePixel  = 0
         TabBtn.Size             = UDim2.new(1, 0, 0, 32)
@@ -557,8 +547,9 @@ function c4rl:CreateWindow(config)
         TabBtn.Parent           = TabSide
         Corner(TabBtn, 5)
 
-        -- active indicator bar on right edge
+        -- Named active indicator so we can find it reliably
         local Indicator = Instance.new("Frame")
+        Indicator.Name             = "Indicator"
         Indicator.BackgroundColor3 = C.Accent
         Indicator.BorderSizePixel  = 0
         Indicator.AnchorPoint      = Vector2.new(1, 0.5)
@@ -567,19 +558,20 @@ function c4rl:CreateWindow(config)
         Indicator.Parent           = TabBtn
         Corner(Indicator, 3)
 
-        -- Tab page (scrolling)
+        -- ScrollingFrame page for this tab
         local Page = Instance.new("ScrollingFrame")
-        Page.Name                 = "Page_" .. tabName
-        Page.BackgroundTransparency = 1
-        Page.BorderSizePixel      = 0
-        Page.Size                 = UDim2.new(1, 0, 1, 0)
-        Page.CanvasSize           = UDim2.new(0, 0, 0, 0)
-        Page.ScrollBarThickness   = 3
-        Page.ScrollBarImageColor3 = C.Accent
-        Page.ScrollBarImageTransparency = 0.5
-        Page.Active               = true
-        Page.Visible              = false
-        Page.Parent               = PagesFolder
+        Page.Name                        = "Page_" .. tabName
+        Page.BackgroundTransparency      = 1
+        Page.BorderSizePixel             = 0
+        Page.Size                        = UDim2.new(1, 0, 1, 0)
+        Page.CanvasSize                  = UDim2.new(0, 0, 0, 0)
+        Page.ScrollBarThickness          = 3
+        Page.ScrollBarImageColor3        = C.Accent
+        Page.ScrollBarImageTransparency  = 0.5
+        Page.Active                      = true
+        Page.Visible                     = false   -- hidden until selected
+        Page.Parent                      = PagesHolder  -- *** MUST be a Frame, not Folder
+        Corner(Page, 0)
 
         local PageLayout = Instance.new("UIListLayout")
         PageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -592,30 +584,38 @@ function c4rl:CreateWindow(config)
         PagePad.PaddingBottom = UDim.new(0, 10)
         PagePad.Parent        = Page
 
+        -- Auto-resize canvas when content changes
         local function SyncCanvas()
             Page.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 20)
         end
         PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(SyncCanvas)
 
+        -- *** FIX: SelectThis now ONLY iterates ScrollingFrames in PagesHolder
+        -- and ONLY TextButtons in TabSide, so UIListLayout / UIPadding /
+        -- the divider Frame etc. are never accidentally tweened or toggled.
         local function SelectThis()
-            for _, p in ipairs(PagesFolder:GetChildren()) do
-                p.Visible = false
+            -- Hide all pages
+            for _, p in ipairs(PagesHolder:GetChildren()) do
+                if p:IsA("ScrollingFrame") then
+                    p.Visible = false
+                end
             end
+            -- Deactivate all tab buttons
             for _, b in ipairs(TabSide:GetChildren()) do
                 if b:IsA("TextButton") then
                     Tween(b, {BackgroundColor3 = C.Bg, TextColor3 = C.TextDim}, 0.16)
-                    local ind = b:FindFirstChild("Indicator") -- wait it's unnamed
-                    -- find by class
-                    for _, ch in ipairs(b:GetChildren()) do
-                        if ch:IsA("Frame") then
-                            Tween(ch, {Size = UDim2.new(0, 0, 0.7, 0)}, 0.16)
-                        end
+                    -- Hide this button's named Indicator
+                    local ind = b:FindFirstChild("Indicator")
+                    if ind then
+                        Tween(ind, {Size = UDim2.new(0, 0, 0.7, 0)}, 0.16)
                     end
                 end
             end
+            -- Show this page and activate this button
             Page.Visible = true
             Tween(TabBtn,    {BackgroundColor3 = C.SurfaceUp, TextColor3 = C.Text}, 0.18)
             Tween(Indicator, {Size = UDim2.new(0, 3, 0.7, 0)}, 0.22, Enum.EasingStyle.Back)
+            SyncCanvas()
         end
 
         TabBtn.MouseButton1Click:Connect(SelectThis)
@@ -628,8 +628,10 @@ function c4rl:CreateWindow(config)
             Tween(TabBtn, {BackgroundColor3 = C.Bg}, 0.14)
         end)
 
-        if not firstTabSelectFn then
-            firstTabSelectFn = SelectThis
+        -- *** FIX: auto-select the very first tab that is created.
+        -- task.defer so all tabs are parented before we select.
+        if not firstTabChosen then
+            firstTabChosen = true
             task.defer(SelectThis)
         end
 
@@ -638,7 +640,7 @@ function c4rl:CreateWindow(config)
         -- ════════════════════════════════════════════
         local ElementAPI = {}
 
-        -- Helper: make a standard row frame (surface card)
+        -- Helper: standard surface card row
         local function Card(h)
             local f = Instance.new("Frame")
             f.BackgroundColor3 = C.Surface
@@ -649,9 +651,7 @@ function c4rl:CreateWindow(config)
             return f
         end
 
-        -- ── Section ────────────────────────────────────────────
-        -- Renders a small all-caps section header with divider line.
-        -- Usage: Tab:Section("Combat")
+        -- ── Section ────────────────────────────────
         function ElementAPI:Section(name)
             name = name or "Section"
             local wrapper = Instance.new("Frame")
@@ -679,9 +679,7 @@ function c4rl:CreateWindow(config)
             line.Parent           = wrapper
         end
 
-        -- ── Separator ──────────────────────────────────────────
-        -- Just a horizontal rule.
-        -- Usage: Tab:Separator()
+        -- ── Separator ──────────────────────────────
         function ElementAPI:Separator()
             local sep = Instance.new("Frame")
             sep.BackgroundColor3 = C.SurfaceTop
@@ -690,15 +688,10 @@ function c4rl:CreateWindow(config)
             sep.Parent           = Page
         end
 
-        -- ── Label ──────────────────────────────────────────────
-        -- A simple read-only text row.
-        -- Usage:
-        --   local lbl = Tab:Label("Hello world")
-        --   lbl:Set("New text")
+        -- ── Label ──────────────────────────────────
         function ElementAPI:Label(text)
             text = text or ""
             local card = Card(38)
-
             local lbl = Instance.new("TextLabel")
             lbl.BackgroundTransparency = 1
             lbl.Position  = UDim2.new(0, 12, 0, 0)
@@ -710,27 +703,18 @@ function c4rl:CreateWindow(config)
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.TextWrapped = true
             lbl.Parent    = card
-
             local API = {}
             function API:Set(t) lbl.Text = t end
             function API:Get()  return lbl.Text end
             return API
         end
 
-        -- ── Button ─────────────────────────────────────────────
-        -- Clickable button with optional description text.
-        -- Usage:
-        --   Tab:Button({
-        --     Text        = "Teleport",
-        --     Description = "Teleport to spawn",
-        --     Callback    = function() ... end
-        --   })
-        function ElementAPI:Button(config)
-            config   = config   or {}
-            local text     = config.Text        or "Button"
-            local desc     = config.Description or ""
-            local callback = config.Callback    or function() end
-
+        -- ── Button ─────────────────────────────────
+        function ElementAPI:Button(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text        or "Button"
+            local desc     = cfg.Description or ""
+            local callback = cfg.Callback    or function() end
             local card = Card(42)
 
             local btn = Instance.new("TextButton")
@@ -778,29 +762,19 @@ function c4rl:CreateWindow(config)
             end)
 
             local API = {}
-            function API:SetText(t)    btn.Text = t end
+            function API:SetText(t)     btn.Text = t end
             function API:SetCallback(f) callback = f end
             return API
         end
 
-        -- ── Toggle ─────────────────────────────────────────────
-        -- Smooth pill toggle with optional default state.
-        -- Usage:
-        --   local tog = Tab:Toggle({
-        --     Text     = "God Mode",
-        --     Default  = false,
-        --     Callback = function(state) ... end
-        --   })
-        --   tog:Set(true)
-        --   local state = tog:Get()
-        function ElementAPI:Toggle(config)
-            config   = config   or {}
-            local text     = config.Text     or "Toggle"
-            local default  = config.Default  or false
-            local callback = config.Callback or function() end
-
-            local toggled = default
-            local card    = Card(42)
+        -- ── Toggle ─────────────────────────────────
+        function ElementAPI:Toggle(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "Toggle"
+            local default  = cfg.Default  or false
+            local callback = cfg.Callback or function() end
+            local toggled  = default
+            local card     = Card(42)
 
             local textLbl = Instance.new("TextLabel")
             textLbl.BackgroundTransparency = 1
@@ -813,7 +787,6 @@ function c4rl:CreateWindow(config)
             textLbl.TextXAlignment = Enum.TextXAlignment.Left
             textLbl.Parent    = card
 
-            -- Track
             local track = Instance.new("Frame")
             track.BackgroundColor3 = toggled and C.Accent or C.SurfaceTop
             track.BorderSizePixel  = 0
@@ -823,7 +796,6 @@ function c4rl:CreateWindow(config)
             track.Parent           = card
             Corner(track, 99)
 
-            -- Knob
             local knob = Instance.new("Frame")
             knob.BackgroundColor3 = C.White
             knob.BorderSizePixel  = 0
@@ -864,30 +836,17 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── Slider ─────────────────────────────────────────────
-        -- Draggable range slider with step and default value.
-        -- Usage:
-        --   local sl = Tab:Slider({
-        --     Text     = "Walk Speed",
-        --     Min      = 0,
-        --     Max      = 100,
-        --     Default  = 16,
-        --     Step     = 1,
-        --     Callback = function(v) ... end
-        --   })
-        --   sl:Set(50)
-        --   local v = sl:Get()
-        function ElementAPI:Slider(config)
-            config   = config   or {}
-            local text     = config.Text     or "Slider"
-            local min      = config.Min      or 0
-            local max      = config.Max      or 100
-            local default  = config.Default  or min
-            local step     = config.Step     or 1
-            local callback = config.Callback or function() end
-
-            local current = math.clamp(default, min, max)
-            local card    = Card(52)
+        -- ── Slider ─────────────────────────────────
+        function ElementAPI:Slider(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "Slider"
+            local min      = cfg.Min      or 0
+            local max      = cfg.Max      or 100
+            local default  = cfg.Default  or min
+            local step     = cfg.Step     or 1
+            local callback = cfg.Callback or function() end
+            local current  = math.clamp(default, min, max)
+            local card     = Card(52)
 
             local textLbl = Instance.new("TextLabel")
             textLbl.BackgroundTransparency = 1
@@ -902,17 +861,16 @@ function c4rl:CreateWindow(config)
 
             local valLbl = Instance.new("TextLabel")
             valLbl.BackgroundTransparency = 1
-            valLbl.AnchorPoint   = Vector2.new(1, 0)
-            valLbl.Position      = UDim2.new(1, -12, 0, 7)
-            valLbl.Size          = UDim2.new(0, 60, 0, 18)
-            valLbl.Font          = Enum.Font.GothamBold
-            valLbl.Text          = tostring(current)
-            valLbl.TextColor3    = C.Accent
-            valLbl.TextSize      = 13
+            valLbl.AnchorPoint  = Vector2.new(1, 0)
+            valLbl.Position     = UDim2.new(1, -12, 0, 7)
+            valLbl.Size         = UDim2.new(0, 60, 0, 18)
+            valLbl.Font         = Enum.Font.GothamBold
+            valLbl.Text         = tostring(current)
+            valLbl.TextColor3   = C.Accent
+            valLbl.TextSize     = 13
             valLbl.TextXAlignment = Enum.TextXAlignment.Right
-            valLbl.Parent        = card
+            valLbl.Parent       = card
 
-            -- Track bg
             local tBg = Instance.new("Frame")
             tBg.BackgroundColor3 = C.SurfaceTop
             tBg.BorderSizePixel  = 0
@@ -921,7 +879,6 @@ function c4rl:CreateWindow(config)
             tBg.Parent           = card
             Corner(tBg, 99)
 
-            -- Fill
             local fill = Instance.new("Frame")
             fill.BackgroundColor3 = C.Accent
             fill.BorderSizePixel  = 0
@@ -929,7 +886,6 @@ function c4rl:CreateWindow(config)
             fill.Parent           = tBg
             Corner(fill, 99)
 
-            -- Knob
             local knob = Instance.new("Frame")
             knob.BackgroundColor3 = C.White
             knob.BorderSizePixel  = 0
@@ -941,7 +897,6 @@ function c4rl:CreateWindow(config)
             Corner(knob, 99)
             Stroke(knob, C.AccentDark, 2)
 
-            -- Invisible hit area (taller than the 6px track)
             local hitArea = Instance.new("TextButton")
             hitArea.BackgroundTransparency = 1
             hitArea.BorderSizePixel        = 0
@@ -955,20 +910,20 @@ function c4rl:CreateWindow(config)
             local dragging = false
 
             local function Calc(mouseX)
-                local abs = tBg.AbsolutePosition.X
-                local siz = tBg.AbsoluteSize.X
-                local rel = math.clamp((mouseX - abs) / siz, 0, 1)
-                local raw = min + (max - min) * rel
-                local stepped = math.round(raw / step) * step
-                return math.clamp(stepped, min, max), rel
+                local abs  = tBg.AbsolutePosition.X
+                local siz  = tBg.AbsoluteSize.X
+                local rel  = math.clamp((mouseX - abs) / siz, 0, 1)
+                local raw  = min + (max - min) * rel
+                local step_v = math.round(raw / step) * step
+                return math.clamp(step_v, min, max), rel
             end
 
             local function Apply(mouseX)
                 local v, rel = Calc(mouseX)
                 current = v
-                fill.Size   = UDim2.new(rel, 0, 1, 0)
+                fill.Size     = UDim2.new(rel, 0, 1, 0)
                 knob.Position = UDim2.new(rel, 0, 0.5, 0)
-                valLbl.Text = tostring(current)
+                valLbl.Text   = tostring(current)
                 pcall(callback, current)
             end
 
@@ -1001,24 +956,13 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── TextBox ────────────────────────────────────────────
-        -- Text input field. Fires callback on Enter.
-        -- Usage:
-        --   local tb = Tab:TextBox({
-        --     Text        = "Username",
-        --     Placeholder = "Enter name...",
-        --     Callback    = function(text) ... end,
-        --     ClearOnFocus = true,
-        --   })
-        --   tb:Set("hello")
-        --   local v = tb:Get()
-        function ElementAPI:TextBox(config)
-            config   = config   or {}
-            local text         = config.Text         or "Input"
-            local placeholder  = config.Placeholder  or "Type here..."
-            local callback     = config.Callback     or function() end
-            local clearOnFocus = (config.ClearOnFocus ~= false)
-
+        -- ── TextBox ────────────────────────────────
+        function ElementAPI:TextBox(cfg)
+            cfg = cfg or {}
+            local text         = cfg.Text         or "Input"
+            local placeholder  = cfg.Placeholder  or "Type here..."
+            local callback     = cfg.Callback     or function() end
+            local clearOnFocus = (cfg.ClearOnFocus ~= false)
             local card = Card(42)
 
             local lbl = Instance.new("TextLabel")
@@ -1068,29 +1012,17 @@ function c4rl:CreateWindow(config)
 
             local API = {}
             function API:Set(v) box.Text = v end
-            function API:Get() return box.Text end
+            function API:Get()  return box.Text end
             return API
         end
 
-        -- ── Dropdown ───────────────────────────────────────────
-        -- Single-select dropdown with smooth open/close animation.
-        -- Usage:
-        --   local dd = Tab:Dropdown({
-        --     Text     = "Team",
-        --     Options  = {"Red", "Blue", "Green"},
-        --     Default  = "Red",
-        --     Callback = function(option) ... end
-        --   })
-        --   dd:Set("Blue")
-        --   local v = dd:Get()
-        --   dd:Refresh({"A", "B"})   -- replace option list
-        function ElementAPI:Dropdown(config)
-            config   = config   or {}
-            local text     = config.Text     or "Select"
-            local options  = config.Options  or {}
-            local default  = config.Default
-            local callback = config.Callback or function() end
-
+        -- ── Dropdown ───────────────────────────────
+        function ElementAPI:Dropdown(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "Select"
+            local options  = cfg.Options  or {}
+            local default  = cfg.Default
+            local callback = cfg.Callback or function() end
             local selected = default
             local isOpen   = false
 
@@ -1102,7 +1034,6 @@ function c4rl:CreateWindow(config)
             wrapper.Parent           = Page
             Corner(wrapper, 6)
 
-            -- Header row
             local hdr = Instance.new("Frame")
             hdr.BackgroundTransparency = 1
             hdr.Size   = UDim2.new(1, 0, 0, 42)
@@ -1130,7 +1061,6 @@ function c4rl:CreateWindow(config)
             arrow.TextSize     = 14
             arrow.Parent       = hdr
 
-            -- Options container
             local optsLayout = Instance.new("UIListLayout")
             optsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
             optsLayout.SortOrder           = Enum.SortOrder.LayoutOrder
@@ -1142,12 +1072,12 @@ function c4rl:CreateWindow(config)
             optsPad.PaddingBottom = UDim.new(0, 5)
             optsPad.Parent        = wrapper
 
+            local totalH = 42
             local function BuildOptions(list)
-                -- remove old buttons
                 for _, ch in ipairs(wrapper:GetChildren()) do
                     if ch:IsA("TextButton") then ch:Destroy() end
                 end
-                local totalH = 42
+                totalH = 42
                 for _, opt in ipairs(list) do
                     local ob = Instance.new("TextButton")
                     ob.BackgroundColor3 = C.SurfaceTop
@@ -1174,14 +1104,12 @@ function c4rl:CreateWindow(config)
                         isOpen = false
                         Tween(arrow,   {Rotation = 0}, 0.2)
                         Tween(wrapper, {Size = UDim2.new(0, 370, 0, 42)}, 0.22, Enum.EasingStyle.Quint)
-                        task.wait(0.22); SyncCanvas()
+                        task.delay(0.22, SyncCanvas)
                     end)
                     totalH = totalH + 33
                 end
-                return totalH
             end
-
-            local totalH = BuildOptions(options)
+            BuildOptions(options)
 
             local clickHdr = Instance.new("TextButton")
             clickHdr.BackgroundTransparency = 1
@@ -1200,7 +1128,7 @@ function c4rl:CreateWindow(config)
                     Tween(arrow,   {Rotation = 0}, 0.2)
                     Tween(wrapper, {Size = UDim2.new(0, 370, 0, 42)}, 0.22, Enum.EasingStyle.Quint)
                 end
-                task.wait(0.25); SyncCanvas()
+                task.delay(0.25, SyncCanvas)
             end)
 
             local API = {}
@@ -1210,7 +1138,7 @@ function c4rl:CreateWindow(config)
             end
             function API:Get() return selected end
             function API:Refresh(newList)
-                totalH = BuildOptions(newList)
+                BuildOptions(newList)
                 isOpen = false
                 wrapper.Size = UDim2.new(0, 370, 0, 42)
                 SyncCanvas()
@@ -1218,24 +1146,13 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── MultiDropdown ──────────────────────────────────────
-        -- Multiple-select dropdown. Callback receives a table of selected options.
-        -- Usage:
-        --   local md = Tab:MultiDropdown({
-        --     Text     = "Abilities",
-        --     Options  = {"Speed", "Jump", "Fly"},
-        --     Default  = {"Speed"},
-        --     Callback = function(selectedTable) ... end
-        --   })
-        --   md:Set({"Jump", "Fly"})
-        --   local tbl = md:Get()   -- returns array
-        function ElementAPI:MultiDropdown(config)
-            config   = config   or {}
-            local text     = config.Text     or "Select"
-            local options  = config.Options  or {}
-            local defaults = config.Default  or {}
-            local callback = config.Callback or function() end
-
+        -- ── MultiDropdown ──────────────────────────
+        function ElementAPI:MultiDropdown(cfg)
+            cfg = cfg or {}
+            local text      = cfg.Text     or "Select"
+            local options   = cfg.Options  or {}
+            local defaults  = cfg.Default  or {}
+            local callback  = cfg.Callback or function() end
             local selected  = {}
             local isOpen    = false
             local checkData = {}
@@ -1271,7 +1188,7 @@ function c4rl:CreateWindow(config)
             hdrLbl.TextColor3 = C.Text
             hdrLbl.TextSize  = 13
             hdrLbl.TextXAlignment = Enum.TextXAlignment.Left
-            hdrLbl.TextTruncate  = Enum.TextTruncate.AtEnd
+            hdrLbl.TextTruncate   = Enum.TextTruncate.AtEnd
             hdrLbl.Parent    = hdr
 
             local arrow = Instance.new("TextLabel")
@@ -1351,7 +1268,6 @@ function c4rl:CreateWindow(config)
                         selected[opt] = nil
                         Tween(box,  {BackgroundColor3 = C.SurfaceUp}, 0.15)
                         Tween(tick, {TextTransparency = 1}, 0.15)
-                        -- stroke can't be tweened easily, set directly
                         for _, s in ipairs(box:GetChildren()) do
                             if s:IsA("UIStroke") then s.Color = C.TextDim end
                         end
@@ -1385,7 +1301,7 @@ function c4rl:CreateWindow(config)
                     Tween(arrow,   {Rotation = 0}, 0.2)
                     Tween(wrapper, {Size = UDim2.new(0, 370, 0, 42)}, 0.22, Enum.EasingStyle.Quint)
                 end
-                task.wait(0.25); SyncCanvas()
+                task.delay(0.25, SyncCanvas)
             end)
 
             local API = {}
@@ -1412,25 +1328,14 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── KeyBind ────────────────────────────────────────────
-        -- Click to listen, fires callback when the bound key is pressed.
-        -- Usage:
-        --   local kb = Tab:KeyBind({
-        --     Text     = "Toggle Menu",
-        --     Default  = Enum.KeyCode.RightShift,
-        --     Callback = function() ... end
-        --   })
-        --   kb:Set(Enum.KeyCode.F)
-        --   local key = kb:Get()
-        function ElementAPI:KeyBind(config)
-            config   = config   or {}
-            local text     = config.Text     or "KeyBind"
-            local default  = config.Default  or Enum.KeyCode.Unknown
-            local callback = config.Callback or function() end
-
+        -- ── KeyBind ────────────────────────────────
+        function ElementAPI:KeyBind(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "KeyBind"
+            local default  = cfg.Default  or Enum.KeyCode.Unknown
+            local callback = cfg.Callback or function() end
             local currentKey = default
             local listening  = false
-
             local card = Card(42)
 
             local lbl = Instance.new("TextLabel")
@@ -1465,12 +1370,11 @@ function c4rl:CreateWindow(config)
                 keyBtn.Text = ". . ."
                 Tween(keyBtn,   {TextColor3 = C.TextMuted}, 0.12)
                 Tween(kbStroke, {Color = C.TextMuted},      0.12)
-
                 local conn
                 conn = UserInputService.InputBegan:Connect(function(input, processed)
                     if processed then return end
                     if input.UserInputType == Enum.UserInputType.Keyboard then
-                        currentKey = input.KeyCode
+                        currentKey  = input.KeyCode
                         keyBtn.Text = input.KeyCode.Name
                         Tween(keyBtn,   {TextColor3 = C.Accent}, 0.15)
                         Tween(kbStroke, {Color = C.Accent},      0.15)
@@ -1490,30 +1394,17 @@ function c4rl:CreateWindow(config)
             end)
 
             local API = {}
-            function API:Set(kc)
-                currentKey   = kc
-                keyBtn.Text  = kc.Name
-            end
-            function API:Get() return currentKey end
+            function API:Set(kc) currentKey = kc; keyBtn.Text = kc.Name end
+            function API:Get()   return currentKey end
             return API
         end
 
-        -- ── ProgressBar ────────────────────────────────────────
-        -- Read-only animated progress bar.
-        -- Usage:
-        --   local pb = Tab:ProgressBar({
-        --     Text    = "Loading",
-        --     Default = 0,
-        --     Max     = 100,
-        --   })
-        --   pb:Set(75)
-        --   local v = pb:Get()
-        function ElementAPI:ProgressBar(config)
-            config  = config  or {}
-            local text    = config.Text    or "Progress"
-            local default = config.Default or 0
-            local max     = config.Max     or 100
-
+        -- ── ProgressBar ────────────────────────────
+        function ElementAPI:ProgressBar(cfg)
+            cfg = cfg or {}
+            local text    = cfg.Text    or "Progress"
+            local default = cfg.Default or 0
+            local max     = cfg.Max     or 100
             local current = math.clamp(default, 0, max)
             local card    = Card(52)
 
@@ -1530,15 +1421,15 @@ function c4rl:CreateWindow(config)
 
             local pctLbl = Instance.new("TextLabel")
             pctLbl.BackgroundTransparency = 1
-            pctLbl.AnchorPoint   = Vector2.new(1, 0)
-            pctLbl.Position      = UDim2.new(1, -12, 0, 7)
-            pctLbl.Size          = UDim2.new(0, 50, 0, 18)
-            pctLbl.Font          = Enum.Font.GothamBold
-            pctLbl.Text          = math.floor((current / max) * 100) .. "%"
-            pctLbl.TextColor3    = C.Accent
-            pctLbl.TextSize      = 12
+            pctLbl.AnchorPoint  = Vector2.new(1, 0)
+            pctLbl.Position     = UDim2.new(1, -12, 0, 7)
+            pctLbl.Size         = UDim2.new(0, 50, 0, 18)
+            pctLbl.Font         = Enum.Font.GothamBold
+            pctLbl.Text         = math.floor((current / max) * 100) .. "%"
+            pctLbl.TextColor3   = C.Accent
+            pctLbl.TextSize     = 12
             pctLbl.TextXAlignment = Enum.TextXAlignment.Right
-            pctLbl.Parent        = card
+            pctLbl.Parent       = card
 
             local tBg = Instance.new("Frame")
             tBg.BackgroundColor3 = C.SurfaceTop
@@ -1566,25 +1457,15 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── ColorPicker ────────────────────────────────────────
-        -- Expandable HSV color picker. Click the preview to open.
-        -- Usage:
-        --   local cp = Tab:ColorPicker({
-        --     Text     = "Highlight Color",
-        --     Default  = Color3.fromRGB(255, 0, 0),
-        --     Callback = function(color) ... end
-        --   })
-        --   cp:Set(Color3.fromRGB(0, 128, 255))
-        --   local col = cp:Get()
-        function ElementAPI:ColorPicker(config)
-            config   = config   or {}
-            local text     = config.Text     or "Color"
-            local default  = config.Default  or Color3.fromRGB(210, 0, 36)
-            local callback = config.Callback or function() end
-
-            local col     = default
-            local H, S, V = Color3.toHSV(col)
-            local isOpen  = false
+        -- ── ColorPicker ────────────────────────────
+        function ElementAPI:ColorPicker(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "Color"
+            local default  = cfg.Default  or Color3.fromRGB(210, 0, 36)
+            local callback = cfg.Callback or function() end
+            local col      = default
+            local H, S, V  = Color3.toHSV(col)
+            local isOpen   = false
 
             local wrapper = Instance.new("Frame")
             wrapper.BackgroundColor3 = C.Surface
@@ -1594,7 +1475,6 @@ function c4rl:CreateWindow(config)
             wrapper.Parent           = Page
             Corner(wrapper, 6)
 
-            -- Header
             local hdrFrame = Instance.new("Frame")
             hdrFrame.BackgroundTransparency = 1
             hdrFrame.Size   = UDim2.new(1, 0, 0, 42)
@@ -1621,7 +1501,6 @@ function c4rl:CreateWindow(config)
             Corner(preview, 5)
             Stroke(preview, C.SurfaceTop, 1)
 
-            -- HSV sliders (shown when open)
             local function MakeHSVSlider(label, yOff, initial)
                 local rowLbl = Instance.new("TextLabel")
                 rowLbl.BackgroundTransparency = 1
@@ -1683,11 +1562,9 @@ function c4rl:CreateWindow(config)
                 pcall(callback, col)
             end
 
-            local function HSVDrag(hitBtn, track, fill, valLbl, setter)
+            local function HSVDrag(hitBtn, track, fill_f, valLbl, setter)
                 local drag = false
-                hitBtn.MouseButton1Down:Connect(function()
-                    drag = true
-                end)
+                hitBtn.MouseButton1Down:Connect(function() drag = true end)
                 UserInputService.InputChanged:Connect(function(input)
                     if not drag then return end
                     if input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -1695,8 +1572,8 @@ function c4rl:CreateWindow(config)
                             (Mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X,
                             0, 1
                         )
-                        fill.Size    = UDim2.new(rel, 0, 1, 0)
-                        valLbl.Text  = math.floor(rel * 255)
+                        fill_f.Size   = UDim2.new(rel, 0, 1, 0)
+                        valLbl.Text   = math.floor(rel * 255)
                         setter(rel)
                         Rebuild()
                     end
@@ -1725,9 +1602,9 @@ function c4rl:CreateWindow(config)
                 if isOpen then
                     Tween(wrapper, {Size = UDim2.new(0, 370, 0, 132)}, 0.25, Enum.EasingStyle.Quint)
                 else
-                    Tween(wrapper, {Size = UDim2.new(0, 370, 0, 42)}, 0.22, Enum.EasingStyle.Quint)
+                    Tween(wrapper, {Size = UDim2.new(0, 370, 0, 42)},  0.22, Enum.EasingStyle.Quint)
                 end
-                task.wait(0.25); SyncCanvas()
+                task.delay(0.25, SyncCanvas)
             end)
 
             local API = {}
@@ -1743,30 +1620,17 @@ function c4rl:CreateWindow(config)
             return API
         end
 
-        -- ── InputNumber ────────────────────────────────────────
-        -- Click +/- to change a numeric value, or type directly.
-        -- Usage:
-        --   local inp = Tab:InputNumber({
-        --     Text     = "Jump Power",
-        --     Min      = 0,
-        --     Max      = 500,
-        --     Default  = 50,
-        --     Step     = 5,
-        --     Callback = function(v) ... end
-        --   })
-        --   inp:Set(100)
-        --   local v = inp:Get()
-        function ElementAPI:InputNumber(config)
-            config   = config   or {}
-            local text     = config.Text     or "Number"
-            local min      = config.Min      or 0
-            local max      = config.Max      or 500
-            local default  = config.Default  or min
-            local step     = config.Step     or 1
-            local callback = config.Callback or function() end
-
-            local current = math.clamp(default, min, max)
-            local card    = Card(42)
+        -- ── InputNumber ────────────────────────────
+        function ElementAPI:InputNumber(cfg)
+            cfg = cfg or {}
+            local text     = cfg.Text     or "Number"
+            local min      = cfg.Min      or 0
+            local max      = cfg.Max      or 500
+            local default  = cfg.Default  or min
+            local step     = cfg.Step     or 1
+            local callback = cfg.Callback or function() end
+            local current  = math.clamp(default, min, max)
+            local card     = Card(42)
 
             local lbl = Instance.new("TextLabel")
             lbl.BackgroundTransparency = 1
@@ -1845,11 +1709,11 @@ function c4rl:CreateWindow(config)
 
             local API = {}
             function API:Set(v) Apply(v) end
-            function API:Get() return current end
+            function API:Get()  return current end
             return API
         end
 
-        -- ── Bind ─ alias for KeyBind with cleaner name
+        -- Alias
         ElementAPI.Bind = ElementAPI.KeyBind
 
         return ElementAPI
