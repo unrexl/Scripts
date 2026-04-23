@@ -377,8 +377,11 @@ function c4rl:CreateWindow(config)
     ContentArea.Size             = UDim2.new(1, -119, 1, 0)
     ContentArea.Parent           = Body
 
-    local PagesFolder = Instance.new("Folder")
-    PagesFolder.Parent = ContentArea
+    local PagesFolder = Instance.new("Frame")
+    PagesFolder.BackgroundTransparency = 1
+    PagesFolder.BorderSizePixel        = 0
+    PagesFolder.Size                   = UDim2.new(1, 0, 1, 0)
+    PagesFolder.Parent                 = ContentArea
 
     MakeDraggable(Header, MainFrame)
 
