@@ -352,14 +352,19 @@ function c4rl:CreateWindow(config)
     TabSide.Parent           = Body
 
     -- Right border on sidebar
+    -- BUGFIX: Parent divider to Body, NOT TabSide.
+    -- When inside TabSide, UIListLayout treats it as a list item
+    -- and its full-height Size (1, 1, 0) pushes all tab buttons
+    -- off-screen so no tabs are visible.
     local TabSideRight = Instance.new("Frame")
     TabSideRight.Name              = "Divider"
     TabSideRight.BackgroundColor3  = C.SurfaceUp
     TabSideRight.BorderSizePixel   = 0
-    TabSideRight.AnchorPoint       = Vector2.new(1, 0)
-    TabSideRight.Position          = UDim2.new(1, 0, 0, 0)
+    TabSideRight.AnchorPoint       = Vector2.new(0, 0)
+    TabSideRight.Position          = UDim2.new(0, 118, 0, 0)
     TabSideRight.Size              = UDim2.new(0, 1, 1, 0)
-    TabSideRight.Parent            = TabSide
+    TabSideRight.ZIndex            = 3
+    TabSideRight.Parent            = Body
 
     local TabListLayout = Instance.new("UIListLayout")
     TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
