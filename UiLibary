@@ -146,16 +146,7 @@ function c4rl:CreateWindow(config)
     SG.IgnoreGuiInset   = true
 
     -- Use safe parenting — handles every executor
-    local guiParent = GetGuiParent()
-    -- If GetGuiParent returned a ScreenGui (syn path), just use it directly
-    -- Otherwise parent our ScreenGui into the container
-    if guiParent:IsA("ScreenGui") then
-        -- syn path already made a protected ScreenGui; we'll reparent into it
-        -- by just using CoreGui directly since syn already called protect_gui
-        SG.Parent = game:GetService("CoreGui")
-    else
-        SG.Parent = guiParent
-    end
+    SG.Parent = GetGuiParent()
 
     -- ── Notification layer ──────────────────────────────────────
     local NotifHolder = Instance.new("Frame")
